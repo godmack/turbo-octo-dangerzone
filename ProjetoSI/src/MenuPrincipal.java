@@ -1,3 +1,5 @@
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.Drive.Children;
@@ -10,6 +12,7 @@ import com.google.api.services.drive.model.FileList;
 import com.google.api.services.drive.model.File;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,6 +35,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
     /**
      * Creates new form Main
      */
+    //usar o 13 da aula
     private Drive service;
     private List<File> files;
     private About about;
@@ -75,9 +79,9 @@ public class MenuPrincipal extends javax.swing.JFrame {
         listModelOriginal.clear();
         for (File file : files) {
             if (isFileInFolder(service, about.getRootFolderId(), file.getId())) {
-                if(isFolder(service, file.getId())){
+                if (isFolder(service, file.getId())) {
                     listModelChanged.addElement(file.getTitle() + " - Folder");
-                }else{
+                } else {
                     listModelChanged.addElement(file.getTitle() + " - File");
                 }
                 listModelOriginal.addElement(file.getTitle());
@@ -107,18 +111,18 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }
 
     private boolean isFolder(Drive service, String fileID) throws IOException {
-        String query="mimeType='application/vnd.google-apps.folder' and trashed=false";
+        String query = "mimeType='application/vnd.google-apps.folder' and trashed=false";
         Files.List request = service.files().list().setQ(query);
         FileList files = request.execute();
         List<File> result = new ArrayList<File>();
         result.addAll(files.getItems());
-        
+
         for (File file : result) {
-            if(file.getId().equals(fileID)){
+            if (file.getId().equals(fileID)) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -159,6 +163,24 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 && request.getPageToken().length() > 0);
     }
 
+    private static InputStream downloadFile(Drive service, File file) {
+        if (file.getDownloadUrl() != null && file.getDownloadUrl().length() > 0) {
+            try {
+                HttpResponse resp
+                        = service.getRequestFactory().buildGetRequest(new GenericUrl(file.getDownloadUrl()))
+                        .execute();
+                return resp.getContent();
+            } catch (IOException e) {
+                // An error occurred.
+                e.printStackTrace();
+                return null;
+            }
+        } else {
+            // The file doesn't have any content stored on Drive.
+            return null;
+        }
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -172,6 +194,8 @@ public class MenuPrincipal extends javax.swing.JFrame {
         jList1 = new javax.swing.JList();
         jButton1 = new javax.swing.JButton();
         jLabel1 = new javax.swing.JLabel();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        jTextArea1 = new javax.swing.JTextArea();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -182,7 +206,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
         });
         jScrollPane1.setViewportView(jList1);
 
-        jButton1.setText("Entrar");
+        jButton1.setText("Abrir");
         jButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButton1ActionPerformed(evt);
@@ -191,21 +215,27 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
         jLabel1.setText("Documentos");
 
+        jTextArea1.setColumns(20);
+        jTextArea1.setRows(5);
+        jScrollPane2.setViewportView(jTextArea1);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
+                .addGap(32, 32, 32)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel1)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(86, 86, 86)
-                        .addComponent(jButton1))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(32, 32, 32)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel1)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 187, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                .addContainerGap(181, Short.MAX_VALUE))
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 187, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 26, Short.MAX_VALUE)
+                        .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addGap(18, 18, 18))
+            .addGroup(layout.createSequentialGroup()
+                .addGap(68, 68, 68)
+                .addComponent(jButton1)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -213,10 +243,12 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 .addContainerGap(29, Short.MAX_VALUE)
                 .addComponent(jLabel1)
                 .addGap(18, 18, 18)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 173, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jScrollPane2)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 173, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jButton1)
-                .addGap(25, 25, 25))
+                .addGap(37, 37, 37))
         );
 
         pack();
@@ -226,12 +258,14 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
         int index = jList1.getSelectedIndex();
         for (File file : files) {
-            if (file.getTitle().equals(listModelOriginal.getElementAt(index))) {                  
+            if (file.getTitle().equals(listModelOriginal.getElementAt(index))) {
                 try {
-                    if(isFolder(service, file.getId())){
+                    if (isFolder(service, file.getId())) {
                         showFiles(file.getId());
-                    }else{
-                        JOptionPane.showMessageDialog(this, "Can't open files!");
+                    } else {
+                        
+                        jTextArea1.setText(downloadFile(service, file).toString());
+                       
                     }
 //                    printFilesInFolder(service, file.getId());
                 } catch (IOException ex) {
@@ -247,5 +281,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel1;
     private javax.swing.JList jList1;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JTextArea jTextArea1;
     // End of variables declaration//GEN-END:variables
 }
