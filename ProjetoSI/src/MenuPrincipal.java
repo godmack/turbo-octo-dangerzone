@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.DefaultListModel;
+import javax.swing.JOptionPane;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -34,6 +35,8 @@ public class MenuPrincipal extends javax.swing.JFrame {
     private Drive service;
     private List<File> files;
     private About about;
+    DefaultListModel listModelOriginal = new DefaultListModel();
+    DefaultListModel listModelChanged = new DefaultListModel();
 
     public MenuPrincipal(Drive service) throws IOException {
         initComponents();
@@ -68,39 +71,55 @@ public class MenuPrincipal extends javax.swing.JFrame {
     private void showFilesInRoot(List<File> files) throws IOException {
         System.out.println(files);
         this.files = files;
-        DefaultListModel listModel = new DefaultListModel();
+        listModelChanged.clear();
+        listModelOriginal.clear();
         for (File file : files) {
             if (isFileInFolder(service, about.getRootFolderId(), file.getId())) {
-                listModel.addElement(file.getTitle());
+                if(isFolder(service, file.getId())){
+                    listModelChanged.addElement(file.getTitle() + " - Folder");
+                }else{
+                    listModelChanged.addElement(file.getTitle() + " - File");
+                }
+                listModelOriginal.addElement(file.getTitle());
             }
         }
-        jList1.setModel(listModel);
+        jList1.setModel(listModelChanged);
 
 //         File file = (File) jList1.getSelectedValue();
 //         file.getId();
     }
 
     private void showFiles(String folderID) throws IOException {
-        DefaultListModel listModel = new DefaultListModel();
+        listModelChanged.clear();;
+        listModelOriginal.clear();
         for (File file : this.files) {
             if (isFileInFolder(service, folderID, file.getId())) {
-                listModel.addElement(file.getTitle());
+                if (isFolder(service, file.getId())) {
+                    listModelChanged.addElement(file.getTitle() + " - Folder");
+                } else {
+                    listModelChanged.addElement(file.getTitle() + " - File");
+                }
+                listModelOriginal.addElement(file.getTitle());
+
             }
         }
-        jList1.setModel(listModel);
+        jList1.setModel(listModelChanged);
     }
 
-    private boolean hasChildrens(Drive service, String folderId) throws IOException {
-        try {
-            Children.List request = service.children().list(folderId);
-            ChildList children = request.execute();
-            if(children.isEmpty()){
-                return false;
-            }           
-             return true;
-        } catch (Exception e) {
-            return false;
+    private boolean isFolder(Drive service, String fileID) throws IOException {
+        String query="mimeType='application/vnd.google-apps.folder' and trashed=false";
+        Files.List request = service.files().list().setQ(query);
+        FileList files = request.execute();
+        List<File> result = new ArrayList<File>();
+        result.addAll(files.getItems());
+        
+        for (File file : result) {
+            if(file.getId().equals(fileID)){
+                return true;
+            }
         }
+        
+        return false;
     }
 
     private static boolean isFileInFolder(Drive service, String folderId,
@@ -205,11 +224,15 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
 
-        String nome = jList1.getSelectedValue().toString();
+        int index = jList1.getSelectedIndex();
         for (File file : files) {
-            if (file.getTitle().equals(nome)) {                  
+            if (file.getTitle().equals(listModelOriginal.getElementAt(index))) {                  
                 try {
-                    showFiles(file.getId());
+                    if(isFolder(service, file.getId())){
+                        showFiles(file.getId());
+                    }else{
+                        JOptionPane.showMessageDialog(this, "Can't open files! What are you? Stupid?");
+                    }
 //                    printFilesInFolder(service, file.getId());
                 } catch (IOException ex) {
                     Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
