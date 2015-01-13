@@ -231,7 +231,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
                     if(isFolder(service, file.getId())){
                         showFiles(file.getId());
                     }else{
-                        JOptionPane.showMessageDialog(this, "Can't open files! What are you? Stupid?");
+                        JOptionPane.showMessageDialog(this, "Can't open files!");
                     }
 //                    printFilesInFolder(service, file.getId());
                 } catch (IOException ex) {
