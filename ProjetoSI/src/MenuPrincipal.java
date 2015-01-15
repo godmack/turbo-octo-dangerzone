@@ -48,6 +48,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -74,19 +75,22 @@ public class MenuPrincipal extends javax.swing.JFrame {
     File openedFile = new File();
     DefaultListModel listModelOriginal = new DefaultListModel();
     DefaultListModel listModelChanged = new DefaultListModel();
-
+    private String g_userEmail;
     public MenuPrincipal(Drive service) throws IOException {
         initComponents();
         this.service = service;
         files = new LinkedList<File>();
         System.out.println(service);
         about = service.about().get().execute();
+        g_userEmail = about.getUser().getEmailAddress();
         showFilesInRoot(retrieveAllFiles(service));
         createCertList();
         
+        
         //HOW TO
         /*byte[] usedPass = cifrarDados_1AES("C:\\Users\\Cristiano\\Desktop\\andre.txt");
-        cifrarDados_2CERT(usedPass,"C:\\Users\\Cristiano\\Desktop\\asd.cer");
+        InputStream cerFile = new FileInputStream("C:\\Users\\Cristiano\\Desktop\\asd.cer");
+        cifrarDados_2CERT(usedPass,cerFile);
         
         InputStream aesPassFileStream = new FileInputStream("encrypted.pass");
         byte[] foundPass = decifrarDados_1CERT(aesPassFileStream, 
@@ -144,10 +148,13 @@ public class MenuPrincipal extends javax.swing.JFrame {
             if (isFileInFolder(service, about.getRootFolderId(), file.getId())) {
                 if (isFolder(service, file.getId())) {
                     listModelChanged.addElement(file.getTitle() + " - Folder");
+                    listModelOriginal.addElement(file.getTitle());
                 } else {
-                    listModelChanged.addElement(file.getTitle() + " - File");
+                    if(file.getTitle().contains(g_userEmail)){
+                        listModelChanged.addElement(file.getTitle().substring(0, file.getTitle().length()-1-g_userEmail.length()) + " - File");
+                        listModelOriginal.addElement(file.getTitle());
+                    }
                 }
-                listModelOriginal.addElement(file.getTitle());
             }
         }
         jList1.setModel(listModelChanged);
@@ -156,25 +163,33 @@ public class MenuPrincipal extends javax.swing.JFrame {
 //         file.getId();
     }
 
-    private void showFiles(String folderID) throws IOException {
-        listModelChanged.clear();;
-        listModelOriginal.clear();
-        //parentFolder.setId(currentFolder.getId());
-        currentFolder.setId(folderID);
-        for (File file : this.files) {
-            if (isFileInFolder(service, folderID, file.getId())) {
-                if (isFolder(service, file.getId())) {
-                    if(!file.getTitle().equals("Certificados")){
-                        listModelChanged.addElement(file.getTitle() + " - Folder");
+    private void showFiles(String folderID) {
+        try {
+            listModelChanged.clear();;
+            listModelOriginal.clear();
+            //parentFolder.setId(currentFolder.getId());
+            currentFolder.setId(folderID);
+            for (File file : this.files) {
+                if (isFileInFolder(service, folderID, file.getId())) {
+                    if (isFolder(service, file.getId())) {
+                        if (!file.getTitle().equals("Certificados")) {
+                            listModelChanged.addElement(file.getTitle() + " - Folder");
+                            listModelOriginal.addElement(file.getTitle());
+                        }
+                    } else {
+                        if (file.getTitle().contains(g_userEmail)) {
+                            listModelChanged.addElement(file.getTitle().substring(0, file.getTitle().length() - 1 - g_userEmail.length()) + " - File");
+                            listModelOriginal.addElement(file.getTitle());
+                        }
                     }
-                } else {
-                    listModelChanged.addElement(file.getTitle() + " - File");
+
                 }
-                listModelOriginal.addElement(file.getTitle());
 
             }
+            jList1.setModel(listModelChanged);
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
         }
-        jList1.setModel(listModelChanged);
     }
 
     private boolean isFolder(Drive service, String fileID) throws IOException {
@@ -380,20 +395,27 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-
+       
         int index = jList1.getSelectedIndex();
         for (File file : files) {
             if (file.getTitle().equals(listModelOriginal.getElementAt(index))) {
                 try {
                     if (isFolder(service, file.getId())) {
                         showFiles(file.getId());
-
+                        break;
                     } else {
+                        
+                        
+                        
+                        
+                        
+                        
                         InputStream ficheiro = downloadFile(service, file);
                         String content = getStringFromInputStream(ficheiro);
                         openedFile = file;
                         jLabel3.setText(file.getTitle());
                         jTextArea1.setText(content);
+                        break;
                     }
                 } catch (IOException ex) {
                     Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
@@ -479,15 +501,14 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }
     
     public void cifrarDados_2CERT(byte[] aesPass,
-                                  String CertKeyFilePath) { //<-- person to share with
+                                  InputStream certKeyFile) { //<-- person to share with
         try {
             //
             // CERT ENCRYPT
             //
             //load cert
-            FileInputStream fisCert = new FileInputStream(CertKeyFilePath);
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            X509Certificate cert = (X509Certificate)cf.generateCertificate(fisCert);
+            X509Certificate cert = (X509Certificate)cf.generateCertificate(certKeyFile);
             
             //init provider
             RSAPublicKey rsaPublicKey = (RSAPublicKey)cert.getPublicKey();
@@ -675,7 +696,44 @@ public class MenuPrincipal extends javax.swing.JFrame {
         }
     }
 
+    private void sendFile(String titulo, String descricao, java.io.File ficheiro){
+        File body = new File();
+        body.setTitle(titulo);
+        body.setDescription(descricao);
+        body.setMimeType("text/plain");
 
+        java.io.File fileContent = new java.io.File(ficheiro.getPath());
+        FileContent mediaContent = new FileContent("text/plain", fileContent);
+        try {
+            File file = service.files().insert(body, mediaContent).execute();
+
+            insertFileIntoFolder(service, currentFolder.getId(), file.getId());
+
+            if (!currentFolder.getId().equals(about.getRootFolderId())) {
+                removeFileFromFolder(service, about.getRootFolderId(), file.getId());
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void setSharedUsers(List<File> certFiles){
+        //vvvvvvvvencrypt
+        byte[] usedPass = cifrarDados_1AES(g_ficheiro.getAbsolutePath());
+        sendFile(g_titulo,g_descricao, new java.io.File("encrypted"));
+        //#call FRAME get LIST
+        for (File f : certFiles) {
+            InputStream stream = downloadFile(service, f);
+            cifrarDados_2CERT(usedPass,stream);
+            sendFile(g_titulo+"."+f.getTitle().substring(0, f.getTitle().length()-4),g_descricao, new java.io.File("encrypted.pass"));
+        }
+        //^^^^^^^^encrypt
+        showFiles(currentFolder.getId());
+    }
+    
+    private java.io.File g_ficheiro;
+    private String g_titulo;
+    private String g_descricao;
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         JFileChooser chooser = new JFileChooser();
         FileNameExtensionFilter filter = new FileNameExtensionFilter("TEXT FILES", "txt", "text");
@@ -683,35 +741,11 @@ public class MenuPrincipal extends javax.swing.JFrame {
         int returnVal = chooser.showOpenDialog(this);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
 
-            java.io.File ficheiro = chooser.getSelectedFile();
-
-            File body = new File();
-
-            String titulo = JOptionPane.showInputDialog(this, "Introduza o titulo do ficheiro");
-            body.setTitle(titulo);
-            String descricao = JOptionPane.showInputDialog(this, "Introduza uma descricao");
-            body.setDescription(descricao);
-            body.setMimeType("text/plain");
-
-            //vvvvvvvvencrypt
-            byte[] usedPass = cifrarDados_1AES(ficheiro.getAbsolutePath());
-            cifrarDados_2CERT(usedPass,"C:\\Users\\Cristiano\\Desktop\\asd.cer");
-
-            //^^^^^^^^encrypt
+            g_ficheiro = chooser.getSelectedFile();
+            g_titulo = JOptionPane.showInputDialog(this, "Introduza o titulo do ficheiro");
+            g_descricao = JOptionPane.showInputDialog(this, "Introduza uma descricao");
             
-            java.io.File fileContent = new java.io.File(ficheiro.getPath());
-            FileContent mediaContent = new FileContent("text/plain", fileContent);
-            try {
-                File file = service.files().insert(body, mediaContent).execute();
-
-                insertFileIntoFolder(service, currentFolder.getId(), file.getId());
-
-                if (!currentFolder.getId().equals(about.getRootFolderId())) {
-                    removeFileFromFolder(service, about.getRootFolderId(), file.getId());
-                }
-            } catch (IOException ex) {
-                Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            new Permissoes(certFiles, this).setVisible(true);
         }
     }//GEN-LAST:event_jButton2ActionPerformed
 
