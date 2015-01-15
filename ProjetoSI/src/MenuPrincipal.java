@@ -12,26 +12,39 @@ import com.google.api.services.drive.model.ChildReference;
 import com.google.api.services.drive.model.FileList;
 
 import com.google.api.services.drive.model.File;
-import static com.sun.org.apache.xml.internal.serialize.OutputFormat.Defaults.Encoding;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.file.Paths;
-import java.nio.file.Path;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Security;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.swing.DefaultListModel;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
-import javax.swing.JTextArea;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -63,6 +76,18 @@ public class MenuPrincipal extends javax.swing.JFrame {
         System.out.println(service);
         about = service.about().get().execute();
         showFilesInRoot(retrieveAllFiles(service));
+        
+        
+        
+        
+        //DELETE
+        /*byte[] usedPass = cifrarDados_1AES("C:\\Users\\Cristiano\\Desktop\\andre.txt");
+        cifrarDados_2CERT(usedPass,"C:\\Users\\Cristiano\\Desktop\\2111226@my.ipleiria.pt.cer");
+        
+        InputStream encryptedFileStream = new FileInputStream("encrypted");
+        InputStream aesPassFileStream = new FileInputStream("encrypted.pass");
+        byte[] foundPass = decifrarDados_1CERT(aesPassFileStream, "C:\\Users\\Cristiano\\Desktop\\2111226@my.ipleiria.pt.pfx");
+        decifrarDados_2AES(encryptedFileStream, foundPass);*/
     }
 
     private static List<File> retrieveAllFiles(Drive service) throws IOException {
@@ -117,7 +142,9 @@ public class MenuPrincipal extends javax.swing.JFrame {
         for (File file : this.files) {
             if (isFileInFolder(service, folderID, file.getId())) {
                 if (isFolder(service, file.getId())) {
-                    listModelChanged.addElement(file.getTitle() + " - Folder");
+                    if(!file.getTitle().equals("Certificados")){
+                        listModelChanged.addElement(file.getTitle() + " - Folder");
+                    }
                 } else {
                     listModelChanged.addElement(file.getTitle() + " - File");
                 }
@@ -129,7 +156,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }
 
     private boolean isFolder(Drive service, String fileID) throws IOException {
-        
+
         String query = "mimeType='application/vnd.google-apps.folder' and trashed=false";
         Files.List request = service.files().list().setQ(query);
         FileList files = request.execute();
@@ -219,6 +246,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
         jLabel2 = new javax.swing.JLabel();
         jButton3 = new javax.swing.JButton();
         jButton4 = new javax.swing.JButton();
+        jLabel3 = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -249,7 +277,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
         jTextArea1.setRows(5);
         jScrollPane2.setViewportView(jTextArea1);
 
-        jLabel2.setText("Ficheiro");
+        jLabel2.setText("Ficheiro:");
 
         jButton3.setText("Root");
         jButton3.addActionListener(new java.awt.event.ActionListener() {
@@ -265,6 +293,8 @@ public class MenuPrincipal extends javax.swing.JFrame {
             }
         });
 
+        jLabel3.setText(" ");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -272,26 +302,31 @@ public class MenuPrincipal extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addGap(32, 32, 32)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 187, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel1))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 63, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 261, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2))
-                .addGap(21, 21, 21))
-            .addGroup(layout.createSequentialGroup()
-                .addGap(54, 54, 54)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(10, 10, 10)
-                        .addComponent(jButton2))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(10, 10, 10)
+                                .addComponent(jButton1)
+                                .addGap(40, 40, 40)
+                                .addComponent(jButton3))
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(39, 39, 39)
+                                .addComponent(jButton2)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jButton4)
+                        .addGap(88, 88, 88))
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(jButton1)
-                        .addGap(18, 18, 18)
-                        .addComponent(jButton3)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jButton4)
-                .addGap(88, 88, 88))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 187, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel1))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 63, Short.MAX_VALUE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 261, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jLabel2)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addGap(21, 21, 21))))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -299,7 +334,8 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 .addContainerGap(19, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel1)
-                    .addComponent(jLabel2))
+                    .addComponent(jLabel2)
+                    .addComponent(jLabel3))
                 .addGap(18, 18, 18)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
@@ -329,11 +365,12 @@ public class MenuPrincipal extends javax.swing.JFrame {
                 try {
                     if (isFolder(service, file.getId())) {
                         showFiles(file.getId());
-                        
+
                     } else {
                         InputStream ficheiro = downloadFile(service, file);
                         String content = getStringFromInputStream(ficheiro);
                         openedFile = file;
+                        jLabel3.setText(file.getTitle());
                         jTextArea1.setText(content);
                     }
                 } catch (IOException ex) {
@@ -345,34 +382,189 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }//GEN-LAST:event_jButton1ActionPerformed
 
     private static String getStringFromInputStream(InputStream is) {
- 
-		BufferedReader br = null;
-		StringBuilder sb = new StringBuilder();
- 
-		String line;
-		try {
- 
-			br = new BufferedReader(new InputStreamReader(is));
-			while ((line = br.readLine()) != null) {
-				sb.append(line);
-			}
- 
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
- 
-		return sb.toString();
- 
-	}
+
+        BufferedReader br = null;
+        StringBuilder sb = new StringBuilder();
+
+        String line;
+        try {
+
+            br = new BufferedReader(new InputStreamReader(is));
+            while ((line = br.readLine()) != null) {
+                sb.append(line);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        return sb.toString();
+
+    }
+
+    public byte[] cifrarDados_1AES(String originalDataFilePath) {
+        //
+        // AES Encrypt
+        //
+        java.io.File originalDataFile = new java.io.File(originalDataFilePath);
+        try {
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(128);
+            
+            SecretKey sec = keyGen.generateKey();
+            Cipher aesCipher = Cipher.getInstance("AES");
+            
+            //get original data
+            byte[] bytesOriginal = new Scanner(originalDataFile).useDelimiter("\\Z").next().getBytes();
+            
+            //encrypt and save data
+            aesCipher.init(Cipher.ENCRYPT_MODE, sec);
+            byte[] bytesEncrypted = aesCipher.doFinal(bytesOriginal);
+            FileOutputStream fout = new FileOutputStream(new java.io.File("encrypted"));
+            fout.write(bytesEncrypted);
+            fout.flush();
+            fout.close();
+            
+            //save AES pass <-- para encriptar com o cert(!)
+            return sec.getEncoded();
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IllegalBlockSizeException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (BadPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return new byte[0];
+    }
     
+    
+    public void cifrarDados_2CERT(byte[] aesPass,
+                                  String CertKeyFilePath) { //<-- person to share with
+        try {
+            //
+            // CERT ENCRYPT
+            //
+            //load cert
+            FileInputStream fisCert = new FileInputStream(CertKeyFilePath);
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            X509Certificate cert = (X509Certificate)cf.generateCertificate(fisCert);
+            
+            //init provider
+            RSAPublicKey rsaPublicKey = (RSAPublicKey)cert.getPublicKey();
+            BouncyCastleProvider bcp = new BouncyCastleProvider();
+            Security.addProvider(bcp);
+            
+            //init cipher
+            Cipher encCipher = Cipher.getInstance("RSA",bcp);
+            encCipher.init(Cipher.ENCRYPT_MODE, rsaPublicKey);
+            
+            //encrypt
+            byte[] encAesPass = encCipher.doFinal(aesPass);
+            FileOutputStream fout = new FileOutputStream(new java.io.File("encrypted.pass"));
+            fout.write(encAesPass);
+            fout.flush();
+            fout.close();
+            
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (CertificateException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IllegalBlockSizeException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (BadPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+    }
+
+    
+    public byte[] decifrarDados_1CERT(InputStream aesPassFileStream,
+                                    String pfxFilePath) {
+
+        //
+        // CERT DECRYPT
+        //
+
+        return new byte[0];
+
+    }
+    
+    public void decifrarDados_2AES(InputStream encryptedFileStream,
+                                   byte[] aesPass) {
+        
+        try {
+            //
+            // AES decrypt
+            //
+
+            //get byte arrays - ecrypted file
+            int nRead;
+            byte[] tempbytes = new byte[1024];
+            ByteArrayOutputStream encrFileBuff = new ByteArrayOutputStream();
+            while ((nRead = encryptedFileStream.read(tempbytes, 0, tempbytes.length)) != -1) {
+                encrFileBuff.write(tempbytes, 0, nRead);
+            }
+            encrFileBuff.flush();
+            byte[] encrFileByteArray = encrFileBuff.toByteArray();//(!)
+            
+            //get byte arrays - aes pass
+            //byte[] secByteArray = new byte[16];//(!)
+            //aesPassFileStream.read(secByteArray, 0, secByteArray.length);
+            
+            //init AES
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(128);
+            SecretKey sec = new SecretKeySpec(aesPass, "AES");
+            Cipher aesCipher = Cipher.getInstance("AES");
+
+            //decrypt with aes and save data
+            aesCipher.init(Cipher.DECRYPT_MODE, sec);
+            byte[] bytesOriginal = aesCipher.doFinal(encrFileByteArray);
+            FileOutputStream fout = new FileOutputStream(new java.io.File("decrypted"));
+            fout.write(bytesOriginal);
+            fout.flush();
+            fout.close();
+            
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IllegalBlockSizeException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (BadPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
     private static ChildReference insertFileIntoFolder(Drive service, String folderId,
             String fileId) {
         ChildReference newChild = new ChildReference();
@@ -405,7 +597,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
             java.io.File ficheiro = chooser.getSelectedFile();
 
             File body = new File();
-            
+
             String titulo = JOptionPane.showInputDialog(this, "Introduza o titulo do ficheiro");
             body.setTitle(titulo);
             String descricao = JOptionPane.showInputDialog(this, "Introduza uma descricao");
@@ -413,15 +605,15 @@ public class MenuPrincipal extends javax.swing.JFrame {
             body.setMimeType("text/plain");
 
             java.io.File fileContent = new java.io.File(ficheiro.getPath());
+
             FileContent mediaContent = new FileContent("text/plain", fileContent);
-            
-            
+
             try {
                 File file = service.files().insert(body, mediaContent).execute();
-                
+
                 insertFileIntoFolder(service, currentFolder.getId(), file.getId());
-                
-                if(!currentFolder.getId().equals(about.getRootFolderId())){
+
+                if (!currentFolder.getId().equals(about.getRootFolderId())) {
                     removeFileFromFolder(service, about.getRootFolderId(), file.getId());
                 }
             } catch (IOException ex) {
@@ -440,19 +632,15 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
 
-
-
-      //CRIAR FICHEIRO TEMPORARIO
-      // File's new content.
-        
-      java.io.File fileContent = new java.io.File(jTextArea1.getText());
-      FileContent mediaContent = new FileContent(openedFile.getMimeType(), fileContent);
+        buscarFicheiro bf = new buscarFicheiro();
+        java.io.File fileContent;
         try {
+            fileContent = bf.transformToFile(jTextArea1.getText());
+            FileContent mediaContent = new FileContent(openedFile.getMimeType(), fileContent);
             service.files().update(openedFile.getId(), openedFile, mediaContent).execute();
         } catch (IOException ex) {
             Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
         }
-
 
 
     }//GEN-LAST:event_jButton4ActionPerformed
@@ -464,6 +652,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
     private javax.swing.JButton jButton4;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JLabel jLabel3;
     private javax.swing.JList jList1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
