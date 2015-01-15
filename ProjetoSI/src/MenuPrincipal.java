@@ -21,13 +21,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.InvalidKeyException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
 import java.security.Security;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -76,18 +82,34 @@ public class MenuPrincipal extends javax.swing.JFrame {
         System.out.println(service);
         about = service.about().get().execute();
         showFilesInRoot(retrieveAllFiles(service));
+        createCertList();
         
-        
-        
-        
-        //DELETE
+        //HOW TO
         /*byte[] usedPass = cifrarDados_1AES("C:\\Users\\Cristiano\\Desktop\\andre.txt");
-        cifrarDados_2CERT(usedPass,"C:\\Users\\Cristiano\\Desktop\\2111226@my.ipleiria.pt.cer");
+        cifrarDados_2CERT(usedPass,"C:\\Users\\Cristiano\\Desktop\\asd.cer");
         
-        InputStream encryptedFileStream = new FileInputStream("encrypted");
         InputStream aesPassFileStream = new FileInputStream("encrypted.pass");
-        byte[] foundPass = decifrarDados_1CERT(aesPassFileStream, "C:\\Users\\Cristiano\\Desktop\\2111226@my.ipleiria.pt.pfx");
+        byte[] foundPass = decifrarDados_1CERT(aesPassFileStream, 
+                                               "C:\\Users\\Cristiano\\Desktop\\asd.pfx",
+                                               "1234");
+        InputStream encryptedFileStream = new FileInputStream("encrypted");
         decifrarDados_2AES(encryptedFileStream, foundPass);*/
+    }
+    
+    private List<File> certFiles = new LinkedList<>();
+    private void createCertList() throws IOException {
+        String certFolderID = "";
+        for (File file : this.files) {
+            if(file.getTitle().equals("Certificados")){
+                certFolderID = file.getId();
+            }
+        }
+        
+        for (File file : this.files) {   
+            if (isFileInFolder(service, certFolderID, file.getId())) {
+                certFiles.add(file);
+            }
+        }
     }
 
     private static List<File> retrieveAllFiles(Drive service) throws IOException {
@@ -434,6 +456,9 @@ public class MenuPrincipal extends javax.swing.JFrame {
             fout.close();
             
             //save AES pass <-- para encriptar com o cert(!)
+            System.out.println("passOriginal:"+Arrays.toString(sec.getEncoded()));
+            System.out.println("passOriginal.size:"+sec.getEncoded().length);
+            
             return sec.getEncoded();
         } catch (NoSuchAlgorithmException ex) {
             Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
@@ -452,7 +477,6 @@ public class MenuPrincipal extends javax.swing.JFrame {
         }
         return new byte[0];
     }
-    
     
     public void cifrarDados_2CERT(byte[] aesPass,
                                   String CertKeyFilePath) { //<-- person to share with
@@ -503,12 +527,72 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     
     public byte[] decifrarDados_1CERT(InputStream aesPassFileStream,
-                                    String pfxFilePath) {
+                                    String pfxFilePath,
+                                    String pfxFilePass) {
 
-        //
-        // CERT DECRYPT
-        //
+        try {
+            //
+            // CERT DECRYPT
+            //
+            
+            //set KeyStore with PFX
+            KeyStore ks = KeyStore.getInstance("pkcs12");
+            ks.load(new FileInputStream(pfxFilePath), pfxFilePass.toCharArray());
+            String alias = ks.aliases().nextElement();
+            
+            //load PK from KeyStore
+            PrivateKey pKey = (PrivateKey)ks.getKey(alias, pfxFilePass.toCharArray());
+            X509Certificate cert = (X509Certificate)ks.getCertificate(alias);
+            
+            //init provider
+            BouncyCastleProvider bcp = new BouncyCastleProvider();
+            Security.addProvider(bcp);
+            
+            //init cipher
+            Cipher encCipher = Cipher.getInstance("RSA",bcp);
+            encCipher.init(Cipher.DECRYPT_MODE, pKey);
+            
+            //get encrypted AES pass bytes
+            int nRead;
+            byte[] tempbytes = new byte[1024];
+            ByteArrayOutputStream buff = new ByteArrayOutputStream();
+            while ((nRead = aesPassFileStream.read(tempbytes, 0, tempbytes.length)) != -1) {
+                buff.write(tempbytes, 0, nRead);
+            }
+            buff.flush();
+            byte[] encAesPassBytes = buff.toByteArray();//(!)
+            System.out.println("passEnc:"+Arrays.toString(encAesPassBytes));
+            System.out.println("passEnc.size:"+encAesPassBytes.length);
 
+            //decrypt AES pass
+            byte[] passOriginal = encCipher.doFinal(encAesPassBytes);
+            System.out.println("passDec:"+Arrays.toString(passOriginal));
+            System.out.println("passDec.size:"+passOriginal.length);
+            
+            return passOriginal;
+            
+        } catch (KeyStoreException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (CertificateException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (UnrecoverableKeyException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IllegalBlockSizeException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (BadPaddingException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
         return new byte[0];
 
     }
@@ -565,6 +649,11 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     }
 
+    
+    
+    
+    
+    
     private static ChildReference insertFileIntoFolder(Drive service, String folderId,
             String fileId) {
         ChildReference newChild = new ChildReference();
@@ -604,10 +693,14 @@ public class MenuPrincipal extends javax.swing.JFrame {
             body.setDescription(descricao);
             body.setMimeType("text/plain");
 
+            //vvvvvvvvencrypt
+            byte[] usedPass = cifrarDados_1AES(ficheiro.getAbsolutePath());
+            cifrarDados_2CERT(usedPass,"C:\\Users\\Cristiano\\Desktop\\asd.cer");
+
+            //^^^^^^^^encrypt
+            
             java.io.File fileContent = new java.io.File(ficheiro.getPath());
-
             FileContent mediaContent = new FileContent("text/plain", fileContent);
-
             try {
                 File file = service.files().insert(body, mediaContent).execute();
 
@@ -658,4 +751,6 @@ public class MenuPrincipal extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JTextArea jTextArea1;
     // End of variables declaration//GEN-END:variables
+
+    
 }
