@@ -16,11 +16,11 @@ import java.nio.file.Files;
  *
  * @author Cristiano
  */
-public class buscarFicheiro {
+public class BuscarFicheiro {
 
     private File file;
 
-    public buscarFicheiro() {
+    public BuscarFicheiro() {
     }
 
     public File transformToFile(String content) throws FileNotFoundException, IOException {

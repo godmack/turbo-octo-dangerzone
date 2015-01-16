@@ -73,6 +73,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
     private About about;
     File currentFolder = new File();
     File openedFile = new File();
+    byte[] openedFilePass = null;
     DefaultListModel listModelOriginal = new DefaultListModel();
     DefaultListModel listModelChanged = new DefaultListModel();
     private String g_userEmail;
@@ -80,7 +81,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
         initComponents();
         this.service = service;
         files = new LinkedList<File>();
-        System.out.println(service);
+        //System.out.println(service);
         about = service.about().get().execute();
         g_userEmail = about.getUser().getEmailAddress();
         showFilesInRoot(retrieveAllFiles(service));
@@ -117,7 +118,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }
 
     private static List<File> retrieveAllFiles(Drive service) throws IOException {
-        System.out.println("Entrei!");
+        //System.out.println("Entrei!");
         List<File> result = new ArrayList<File>();
         String query = "trashed=false";
         Files.List request = service.files().list().setQ(query);
@@ -395,33 +396,57 @@ public class MenuPrincipal extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-       
-        int index = jList1.getSelectedIndex();
-        for (File file : files) {
-            if (file.getTitle().equals(listModelOriginal.getElementAt(index))) {
-                try {
+        try {
+            int index = jList1.getSelectedIndex();
+            String selected = (String) listModelOriginal.getElementAt(index);
+            for (File file : files) {
+                if (file.getTitle().equals(selected)) {
                     if (isFolder(service, file.getId())) {
                         showFiles(file.getId());
                         break;
                     } else {
-                        
-                        
-                        
-                        
-                        
-                        
-                        InputStream ficheiro = downloadFile(service, file);
-                        String content = getStringFromInputStream(ficheiro);
-                        openedFile = file;
-                        jLabel3.setText(file.getTitle());
-                        jTextArea1.setText(content);
+                        //get AES encrypted file
+                        //System.out.print("downloading: "+file.getTitle()+"\n");
+                        InputStream isAesPassEnc = downloadFile(service, file);
+                        //get DATA encrypted file
+                        InputStream isDataEnc=null;
+                        File dataFile = null;
+                        String selectedOri = selected.substring(0, selected.length()-1-g_userEmail.length());
+                        for (File fOri : files) {
+                            if (fOri.getTitle().equals(selectedOri)) {
+                                //System.out.print("downloading: "+fOri.getTitle()+"\n");
+                                dataFile = fOri;
+                                isDataEnc = downloadFile(service, fOri);
+                                break;
+                            }
+                        }
+                        //get PFX and pfx pass from user
+                        JFileChooser chooser = new JFileChooser();
+                        FileNameExtensionFilter filter = new FileNameExtensionFilter("PFX", "pfx");
+                        chooser.setFileFilter(filter);
+                        int returnVal = chooser.showOpenDialog(this);
+                        if (returnVal == JFileChooser.APPROVE_OPTION) {
+                            String pfxFilePath = chooser.getSelectedFile().getAbsolutePath();
+                            String pfxPass = JOptionPane.showInputDialog(this, "Introduza a password do PFX");
+
+                            //get decrypted AES pass from AES file
+                            byte[] foundPass = decifrarDados_1CERT(isAesPassEnc,pfxFilePath,pfxPass);
+                            
+                            //get decrypted DATA from DATA file
+                            decifrarDados_2AES(isDataEnc, foundPass);
+                            InputStream decryptedFile = new FileInputStream("decrypted");
+                            String content = getStringFromInputStream(decryptedFile);
+                            openedFile = dataFile;
+                            openedFilePass = foundPass;
+                            jLabel3.setText(dataFile.getTitle());
+                            jTextArea1.setText(content);
+                        }
                         break;
                     }
-                } catch (IOException ex) {
-                    Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
             }
+        } catch (IOException ex) {
+            Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_jButton1ActionPerformed
 
@@ -435,7 +460,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
             br = new BufferedReader(new InputStreamReader(is));
             while ((line = br.readLine()) != null) {
-                sb.append(line);
+                sb.append(line+"\n");
             }
 
         } catch (IOException e) {
@@ -454,7 +479,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     }
 
-    public byte[] cifrarDados_1AES(String originalDataFilePath) {
+    public byte[] cifrarDados_1AES(String originalDataFilePath, byte[] pass) {
         //
         // AES Encrypt
         //
@@ -463,7 +488,12 @@ public class MenuPrincipal extends javax.swing.JFrame {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
             keyGen.init(128);
             
-            SecretKey sec = keyGen.generateKey();
+            SecretKey sec;
+            if(pass != null){
+                sec = new SecretKeySpec(pass, "AES");
+            }else{
+                sec = keyGen.generateKey();
+            }
             Cipher aesCipher = Cipher.getInstance("AES");
             
             //get original data
@@ -478,9 +508,6 @@ public class MenuPrincipal extends javax.swing.JFrame {
             fout.close();
             
             //save AES pass <-- para encriptar com o cert(!)
-            System.out.println("passOriginal:"+Arrays.toString(sec.getEncoded()));
-            System.out.println("passOriginal.size:"+sec.getEncoded().length);
-            
             return sec.getEncoded();
         } catch (NoSuchAlgorithmException ex) {
             Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
@@ -582,15 +609,9 @@ public class MenuPrincipal extends javax.swing.JFrame {
             }
             buff.flush();
             byte[] encAesPassBytes = buff.toByteArray();//(!)
-            System.out.println("passEnc:"+Arrays.toString(encAesPassBytes));
-            System.out.println("passEnc.size:"+encAesPassBytes.length);
-
-            //decrypt AES pass
-            byte[] passOriginal = encCipher.doFinal(encAesPassBytes);
-            System.out.println("passDec:"+Arrays.toString(passOriginal));
-            System.out.println("passDec.size:"+passOriginal.length);
             
-            return passOriginal;
+            //decrypt AES pass
+            return encCipher.doFinal(encAesPassBytes);
             
         } catch (KeyStoreException ex) {
             Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
@@ -635,10 +656,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
             }
             encrFileBuff.flush();
             byte[] encrFileByteArray = encrFileBuff.toByteArray();//(!)
-            
-            //get byte arrays - aes pass
-            //byte[] secByteArray = new byte[16];//(!)
-            //aesPassFileStream.read(secByteArray, 0, secByteArray.length);
+            //System.out.println("dataToDecrypt"+encrFileByteArray.length);
             
             //init AES
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
@@ -719,7 +737,7 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     public void setSharedUsers(List<File> certFiles){
         //vvvvvvvvencrypt
-        byte[] usedPass = cifrarDados_1AES(g_ficheiro.getAbsolutePath());
+        byte[] usedPass = cifrarDados_1AES(g_ficheiro.getAbsolutePath(), null);
         sendFile(g_titulo,g_descricao, new java.io.File("encrypted"));
         //#call FRAME get LIST
         for (File f : certFiles) {
@@ -759,11 +777,15 @@ public class MenuPrincipal extends javax.swing.JFrame {
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
 
-        buscarFicheiro bf = new buscarFicheiro();
-        java.io.File fileContent;
+        BuscarFicheiro bf = new BuscarFicheiro();
         try {
-            fileContent = bf.transformToFile(jTextArea1.getText());
-            FileContent mediaContent = new FileContent(openedFile.getMimeType(), fileContent);
+            //save plain text
+            java.io.File fileContentOrig = bf.transformToFile(jTextArea1.getText());
+            //encrypt
+            byte[] usedPass = cifrarDados_1AES(fileContentOrig.getAbsolutePath(), openedFilePass);
+            //send encrypted file
+            java.io.File fileContentEnc = new java.io.File("encrypted");
+            FileContent mediaContent = new FileContent(openedFile.getMimeType(), fileContentEnc);
             service.files().update(openedFile.getId(), openedFile, mediaContent).execute();
         } catch (IOException ex) {
             Logger.getLogger(MenuPrincipal.class.getName()).log(Level.SEVERE, null, ex);
